@@ -16,6 +16,10 @@ def check_metadata():
         if not os.path.exists(metadata_path):
             with open(metadata_path, "w") as f:
                 pass  # Create an empty file if the metadata file does not exist
+        else:
+            pass
+    else:
+        pass
 
 def upload(client_socket, client_name, file_name):
     try:
@@ -24,9 +28,9 @@ def upload(client_socket, client_name, file_name):
 
         with open(file_path, "w") as f: # Create the file in the server
             while True:
-                data = client_socket.recv(1024).decode().strip()
+                data = client_socket.recv(1024).decode()
 
-                if data == "UPLOAD_COMPLETE": # Break the loop if the client has finished uploading the file
+                if data.strip() == "UPLOAD_COMPLETE": # Break the loop if the client has finished uploading the file
                     break
                 else:
                     pass
