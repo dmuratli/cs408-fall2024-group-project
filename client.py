@@ -131,23 +131,29 @@ def disconnect():
             update_GUI("Disconnected from server")
 
 def list_files():
-    pass
-    #to be continue
+    if check_connection():
+        try:
+            client_socket.send("LIST".encode())
+        except Exception as e:
+            update_GUI(f"List files error: {str(e)}")
+    else:
+        update_GUI("Please connect to the server first")
 
 def download():
     pass
     #to be continue
 
-def upload_file(filename):
+def upload_file(filename): #thread function for uploading
     try:
         client_socket.send(f"UPLOAD {os.path.basename(filename)}".encode())
         with open(filename, 'r', encoding="ascii") as file:
             content = file.read()
-            for i in range(0, len(content), 1024): #The main algorithm to handle conflicts
-                chunk = content[i:i+1024]          #The data are send as chunks 1kbit (1kilo = 1024 (binary kilo))
+            update_GUI("Uploading...")
+            for i in range(0, len(content), 65536): #The main algorithm to handle conflicts
+                chunk = content[i:i+65536]          #The data are send as chunks 64kB (1kilo = 1024 (binary kilo))
                 client_socket.send(chunk.encode()) #The thread waits a little of time between each chunk to prevent conflicts
-                time.sleep(0.005)
-        time.sleep(0.05)
+                time.sleep(0.001) #1 ms waits between each chunk
+        time.sleep(0.1) #100 ms wait before sending upload_complete signal
         client_socket.send("UPLOAD_COMPLETE".encode()) 
     except Exception as e:
         update_GUI(f"Upload error: {e}")
