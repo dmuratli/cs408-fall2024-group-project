@@ -44,6 +44,19 @@ def get_name():
         return False
     return True
 
+def listen_server():
+    global client_socket
+    while client_socket:
+        try:
+            message = client_socket.recv(1024).decode()
+            if message:
+                update_GUI(f"Server: {message}")
+            else:
+                pass
+        except:
+            break
+
+
 def connect():
     if check_connection():
         update_GUI("Connection has been already set, please disconnect and connect again")
@@ -71,6 +84,7 @@ def connect():
                     update_GUI(response)
                 else:
                     update_GUI(f"Successfully connected to server!")
+                    threading.Thread(target=listen_server, daemon=True).start()
 
         except ConnectionRefusedError:
             update_GUI("Connection refused. Make sure server is running.")
@@ -113,8 +127,22 @@ def download():
     #to be continue
 
 def upload():
-    pass
-    #to be continue
+    filename = filedialog.askopenfilename(filetypes=[("Text files", "*.txt")])
+    if filename:
+        try:
+            client_socket.send(f"UPLOAD {os.path.basename(filename)}".encode())
+
+            with open(filename, 'r', encoding="ascii") as file:
+                while True:
+                    chunk = file.read(1024)
+                    if not chunk:
+                        break
+                    client_socket.send(chunk.encode())
+            
+            client_socket.send("UPLOAD_COMPLETE".encode())
+            
+        except Exception as e:
+            update_GUI(f"Upload error: {e}")
 
 def delete():
     pass
