@@ -21,6 +21,8 @@ def get_IP():
     server_IP = (serverIP_entry.get().strip())
     if not server_IP:
         update_GUI("Server IP must not be empty")
+        return False
+    return True
     
 def get_port():
     global server_port
@@ -28,14 +30,19 @@ def get_port():
         server_port = int(port_entry.get().strip())
     except ValueError:
         update_GUI("Port must be a number")
-        return
+        return False
+    if not server_port:
+        update_GUI("Port must not be empty")
+        return False
+    return True
 
 def get_name():
     global name
     name = name_entry.get()
     if not name:
-        update_GUI("Username must not be empty")
-
+        update_GUI("Name must not be empty")
+        return False
+    return True
 
 def connect():
     if check_connection():
@@ -43,9 +50,12 @@ def connect():
     else:
         global client_socket
         try: 
-            get_IP()
-            get_port()
-            get_name()
+            if not get_IP():
+                return
+            if not get_port():
+                return
+            if not get_name():
+                return
             client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             client_socket.connect((server_IP, server_port))
             update_GUI(f"Connecting to {server_IP}:{server_port}...")
@@ -112,7 +122,6 @@ def delete():
 
 def check_connection():
     if client_socket is None:
-        update_GUI("Not connected to server")
         return False
     return True
 

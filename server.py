@@ -128,7 +128,7 @@ def handle_client(client_socket, client_address):
 
             return
         else:
-            pass
+            client_socket.send("OK".encode()) #Added by Emir otherwise the client keep waiting a response from server
 
         clients[client_name] = client_socket # Add the client to the dictionary
         update_gui(f"{client_name} has connected.")
