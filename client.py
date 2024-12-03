@@ -3,6 +3,7 @@ import threading
 import os
 import tkinter as tk
 from tkinter import filedialog
+import time
 
 #region Global Variables
 #================
@@ -12,6 +13,7 @@ file_directory = None
 server_IP = None
 server_port = None
 client_socket = None
+delete_file = None
 
 #================
 #endregion
@@ -44,6 +46,14 @@ def get_name():
         return False
     return True
 
+def get_delete_file():
+    global delete_file
+    delete_file = delete_file_entry.get()
+    if not delete_file:
+        update_GUI("Delete file must not be empty")
+        return False
+    return True
+
 def listen_server():
     global client_socket
     while client_socket:
@@ -71,7 +81,7 @@ def connect():
                 return
             client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             client_socket.connect((server_IP, server_port))
-            update_GUI(f"Connecting to {server_IP}:{server_port}...")
+            update_GUI(f"Connecting to {server_IP}:{server_port}")
             
             name_prompt = client_socket.recv(1024).decode()
             if name_prompt == "USERNAME: ":
@@ -104,6 +114,7 @@ def disconnect():
     global server_IP
     global server_port
     global client_socket
+    global delete_file
     if client_socket:
         try:
             client_socket.send("DISCONNECT".encode())
@@ -116,6 +127,7 @@ def disconnect():
             server_IP = None
             server_port = None
             client_socket = None
+            delete_file = None
             update_GUI("Disconnected from server")
 
 def list_files():
@@ -126,27 +138,39 @@ def download():
     pass
     #to be continue
 
-def upload():
-    filename = filedialog.askopenfilename(filetypes=[("Text files", "*.txt")])
-    if filename:
-        try:
-            client_socket.send(f"UPLOAD {os.path.basename(filename)}".encode())
+def upload_file(filename):
+    try:
+        client_socket.send(f"UPLOAD {os.path.basename(filename)}".encode())
+        with open(filename, 'r', encoding="ascii") as file:
+            content = file.read()
+            for i in range(0, len(content), 1024): #The main algorithm to handle conflicts
+                chunk = content[i:i+1024]          #The data are send as chunks 1kbit (1kilo = 1024 (binary kilo))
+                client_socket.send(chunk.encode()) #The thread waits a little of time between each chunk to prevent conflicts
+                time.sleep(0.005)
+        time.sleep(0.05)
+        client_socket.send("UPLOAD_COMPLETE".encode()) 
+    except Exception as e:
+        update_GUI(f"Upload error: {e}")
 
-            with open(filename, 'r', encoding="ascii") as file:
-                while True:
-                    chunk = file.read(1024)
-                    if not chunk:
-                        break
-                    client_socket.send(chunk.encode())
-            
-            client_socket.send("UPLOAD_COMPLETE".encode())
-            
-        except Exception as e:
-            update_GUI(f"Upload error: {e}")
+def upload():
+    if check_connection():
+        filename = filedialog.askopenfilename(filetypes=[("Text files", "*.txt")]) #only txt files are allowed as the document says
+        if filename:
+            threading.Thread(target=upload_file, args=(filename,)).start()
+    else:
+        update_GUI("Please connect to the server first")
 
 def delete():
-    pass
-    #to be continue
+    global delete_file
+    if check_connection():
+        get_delete_file()
+        try:
+            delete_command = f"DELETE {name}|{delete_file}"
+            client_socket.send(delete_command.encode())
+        except Exception as e:
+            update_GUI(f"Delete error: {str(e)}")
+    else:
+        update_GUI("Please connect to the server first")
 
 def check_connection():
     if client_socket is None:
@@ -155,7 +179,6 @@ def check_connection():
 
 def select_directory():
     global file_directory
-    
     file_directory = filedialog.askdirectory()
     update_GUI(f"Files will be downloaded to: {file_directory}")
 
@@ -173,7 +196,7 @@ app.title("Cloud File SUtorage and Publishing")
 app.columnconfigure(1, weight=1)
 app.columnconfigure(3, weight=1)
 
-app.rowconfigure(5, weight=1) #log box's row has been configured
+app.rowconfigure(6, weight=1) #log box's row has been configured
 
 #ServerIP entry
 tk.Label(app, text="Server IP:").grid(row=0, column=0, padx=5, pady=5, sticky="E")
@@ -190,26 +213,31 @@ tk.Label(app, text="Name:").grid(row=1, column=0, padx=5, pady=5, sticky="E")
 name_entry = tk.Entry(app)
 name_entry.grid(row=1, column=1, padx=5, pady=5, columnspan=3, sticky="EW")
 
+#Delete entry
+tk.Label(app, text="Delete File:").grid(row=2, column=0, padx=5, pady=5, sticky="E")
+delete_file_entry = tk.Entry(app)
+delete_file_entry.grid(row=2, column=1, padx=5, pady=5, columnspan=3, sticky="EW")
+
 #Connect button
 connect_button = tk.Button(app, text= "Connect", command = connect)
-connect_button.grid(row=2, column=0, columnspan= 2, padx=5, pady =5, sticky="EW")
+connect_button.grid(row=3, column=0, columnspan= 2, padx=5, pady =5, sticky="EW")
 
 #Disconnect button 
 disconnect_button = tk.Button(app, text= "Disconnect", command = disconnect)
-disconnect_button.grid(row=2, column=2, columnspan= 2, padx=5, pady =5, sticky="EW")
+disconnect_button.grid(row=3, column=2, columnspan= 2, padx=5, pady =5, sticky="EW")
 
 #List files button
 list_files_button = tk.Button(app, text="List Files", command= list_files)
-list_files_button.grid(row=3, column=0, columnspan=2, padx=5, pady=5, sticky="EW")
+list_files_button.grid(row=4, column=0, columnspan=2, padx=5, pady=5, sticky="EW")
 
 #Select directory button to download there (a.k.a. browser button)
 select_directory_button = tk.Button(app, text="Select Directory", command=select_directory)
-select_directory_button.grid(row=3, column=2, columnspan=2, padx=5, pady=5, sticky="EW")
+select_directory_button.grid(row=4, column=2, columnspan=2, padx=5, pady=5, sticky="EW")
 
 
 #row 4 has been split into 3 parts to fit download, upload and delete buttons
 button_frame = tk.Frame(app)
-button_frame.grid(row=4, column=0, columnspan=4, sticky="EW")
+button_frame.grid(row=5, column=0, columnspan=4, sticky="EW")
 
 button_frame.columnconfigure(0, weight=1)
 button_frame.columnconfigure(1, weight=1)
@@ -229,7 +257,7 @@ delete_button.grid(row=0, column=2, padx=5, pady=5, sticky="EW")
 
 #Log box
 log_listbox = tk.Listbox(app, width=50, height=15)
-log_listbox.grid(row=5, column=0, columnspan=4, padx=5, pady=5, sticky="NSEW")
+log_listbox.grid(row=6, column=0, columnspan=4, padx=5, pady=5, sticky="NSEW")
 
 app.mainloop()
 
