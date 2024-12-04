@@ -14,6 +14,7 @@ server_IP = None
 server_port = None
 client_socket = None
 file_name = None
+is_downloading = False
 
 #================
 #endregion
@@ -50,21 +51,26 @@ def get_file_name():
     global file_name
     file_name = file_name_entry.get()
     if not file_name:
-        update_GUI("Delete file must not be empty")
         return False
     return True
 
 def listen_server():
     global client_socket
+    global is_downloading
     while client_socket:
-        try:
-            message = client_socket.recv(1024).decode()
-            if message:
-                update_GUI(f"Server: {message}")
-            else:
-                pass
-        except:
-            break
+        if (is_downloading != True):
+            try:
+                message = client_socket.recv(1024).decode()
+                if message:
+                    update_GUI(f"Server: {message}")
+                else:
+                    pass
+            except:
+                break
+        else:
+            time.sleep(0.1) # 100 ms waits
+        time.sleep(0.001)  # 1 ms wait between listening
+        
 
 
 def connect():
@@ -139,9 +145,76 @@ def list_files():
     else:
         update_GUI("Please connect to the server first")
 
+def parse_file_info(file_entry):
+    parts = file_entry.split("|")
+    if len(parts) == 2:
+        return parts[0].strip(), parts[1].strip()
+    return None, None
+
+
+def download_file(filename): 
+    global is_downloading
+    try:
+        parts = filename.split("|")
+        if len(parts) == 2:
+            owner, pure_filename = parts[0].strip(), parts[1].strip()
+        else:
+            pure_filename = filename
+            owner = name 
+
+        if owner != name:
+            request_filename = f"{owner}|{pure_filename}"
+        else:
+            request_filename = pure_filename
+            
+        client_socket.send(f"DOWNLOAD {request_filename}".encode())
+        file_path = os.path.join(file_directory, pure_filename)
+        update_GUI("Downloading...")
+        is_downloading = True
+        time.sleep(1) 
+        downloaded_data = []
+
+        while True:
+            data = client_socket.recv(1024).decode()
+            
+            if "Error:" in data:
+                update_GUI(data)
+                is_downloading = False
+                return
+                
+            if "\nDownloaded" in data:
+                data = data.split("\nDownloaded")[0]
+                if data:
+                    downloaded_data.append(data)
+                break
+            
+            downloaded_data.append(data)
+            time.sleep(0.01) 
+        
+        with open(file_path, 'w', encoding="ascii") as file:
+            file.write(''.join(downloaded_data))
+        update_GUI(f"Successfully downloaded {pure_filename}")
+    except Exception as e:
+        update_GUI(f"Download error: {str(e)}")
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    finally:
+        is_downloading = False
+
 def download():
-    pass
-    #to be continue
+    global file_name
+    if check_connection():
+        if file_directory:
+            get_file_name()
+            if file_name:
+                threading.Thread(target=download_file, args=(file_name,)).start()
+            else:
+                update_GUI("File name must not be empty")      
+        else:
+            update_GUI("Please select a directory to download first")    
+    else:
+        update_GUI("Please connect to the server first")
+
 
 def upload_file(filename): #thread function for uploading
     try:
@@ -149,11 +222,11 @@ def upload_file(filename): #thread function for uploading
         with open(filename, 'r', encoding="ascii") as file:
             content = file.read()
             update_GUI("Uploading...")
-            for i in range(0, len(content), 65536): #The main algorithm to handle conflicts
-                chunk = content[i:i+65536]          #The data are send as chunks 64kB (1kilo = 1024 (binary kilo))
+            for i in range(0, len(content), 1024): #The main algorithm to handle conflicts
+                chunk = content[i:i+1024]          #The data are send as chunks 1kB (1kilo = 1024 (binary kilo))
                 client_socket.send(chunk.encode()) #The thread waits a little of time between each chunk to prevent conflicts
-                time.sleep(0.001) #1 ms waits between each chunk
-        time.sleep(0.1) #100 ms wait before sending upload_complete signal
+                time.sleep(0.01) #10 ms waits between each chunk
+        time.sleep(1) #1 second wait before sending upload_complete signal
         client_socket.send("UPLOAD_COMPLETE".encode()) 
     except Exception as e:
         update_GUI(f"Upload error: {e}")
@@ -170,11 +243,14 @@ def delete():
     global file_name
     if check_connection():
         get_file_name()
-        try:
-            delete_command = f"DELETE {name}|{file_name}"
-            client_socket.send(delete_command.encode())
-        except Exception as e:
-            update_GUI(f"Delete error: {str(e)}")
+        if file_name:
+            try:
+                delete_command = f"DELETE {name}|{file_name}"
+                client_socket.send(delete_command.encode())
+            except Exception as e:
+                update_GUI(f"Delete error: {str(e)}")
+        else:
+            update_GUI("File name must not be empty")
     else:
         update_GUI("Please connect to the server first")
 
