@@ -145,33 +145,14 @@ def list_files():
     else:
         update_GUI("Please connect to the server first")
 
-def parse_file_info(file_entry):
-    parts = file_entry.split("|")
-    if len(parts) == 2:
-        return parts[0].strip(), parts[1].strip()
-    return None, None
-
-
 def download_file(filename): 
     global is_downloading
     try:
-        parts = filename.split("|")
-        if len(parts) == 2:
-            owner, pure_filename = parts[0].strip(), parts[1].strip()
-        else:
-            pure_filename = filename
-            owner = name 
-
-        if owner != name:
-            request_filename = f"{owner}|{pure_filename}"
-        else:
-            request_filename = pure_filename
-            
-        client_socket.send(f"DOWNLOAD {request_filename}".encode())
-        file_path = os.path.join(file_directory, pure_filename)
+        client_socket.send(f"DOWNLOAD {filename}".encode())
+        file_path = os.path.join(file_directory, filename)
         update_GUI("Downloading...")
         is_downloading = True
-        time.sleep(1) 
+        time.sleep(1) #1 second waits
         downloaded_data = []
 
         while True:
@@ -189,11 +170,11 @@ def download_file(filename):
                 break
             
             downloaded_data.append(data)
-            time.sleep(0.01) 
+            time.sleep(0.01) #10 ms waiting
         
         with open(file_path, 'w', encoding="ascii") as file:
             file.write(''.join(downloaded_data))
-        update_GUI(f"Successfully downloaded {pure_filename}")
+        update_GUI(f"Successfully downloaded {filename}")
     except Exception as e:
         update_GUI(f"Download error: {str(e)}")
         if os.path.exists(file_path):
