@@ -13,7 +13,7 @@ file_directory = None
 server_IP = None
 server_port = None
 client_socket = None
-delete_file = None
+file_name = None
 
 #================
 #endregion
@@ -46,10 +46,10 @@ def get_name():
         return False
     return True
 
-def get_delete_file():
-    global delete_file
-    delete_file = delete_file_entry.get()
-    if not delete_file:
+def get_file_name():
+    global file_name
+    file_name = file_name_entry.get()
+    if not file_name:
         update_GUI("Delete file must not be empty")
         return False
     return True
@@ -114,7 +114,7 @@ def disconnect():
     global server_IP
     global server_port
     global client_socket
-    global delete_file
+    global file_name
     if client_socket:
         try:
             client_socket.send("DISCONNECT".encode())
@@ -127,7 +127,7 @@ def disconnect():
             server_IP = None
             server_port = None
             client_socket = None
-            delete_file = None
+            file_name = None
             update_GUI("Disconnected from server")
 
 def list_files():
@@ -167,11 +167,11 @@ def upload():
         update_GUI("Please connect to the server first")
 
 def delete():
-    global delete_file
+    global file_name
     if check_connection():
-        get_delete_file()
+        get_file_name()
         try:
-            delete_command = f"DELETE {name}|{delete_file}"
+            delete_command = f"DELETE {name}|{file_name}"
             client_socket.send(delete_command.encode())
         except Exception as e:
             update_GUI(f"Delete error: {str(e)}")
@@ -220,9 +220,9 @@ name_entry = tk.Entry(app)
 name_entry.grid(row=1, column=1, padx=5, pady=5, columnspan=3, sticky="EW")
 
 #Delete entry
-tk.Label(app, text="Delete File:").grid(row=2, column=0, padx=5, pady=5, sticky="E")
-delete_file_entry = tk.Entry(app)
-delete_file_entry.grid(row=2, column=1, padx=5, pady=5, columnspan=3, sticky="EW")
+tk.Label(app, text="File Name:").grid(row=2, column=0, padx=5, pady=5, sticky="E")
+file_name_entry = tk.Entry(app)
+file_name_entry.grid(row=2, column=1, padx=5, pady=5, columnspan=3, sticky="EW")
 
 #Connect button
 connect_button = tk.Button(app, text= "Connect", command = connect)
