@@ -17,7 +17,7 @@ client_socket = None
 file_name = None
 transfer_event = threading.Event()
 
-BUFFER_SIZE = 10485760 # 10 MB
+BUFFER_SIZE = 65536 # 10 MB
 
 #================
 #endregion

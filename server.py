@@ -9,7 +9,7 @@ server_socket = None
 clients = {} # Connected clients
 file_directory = None
 metadata_file = "server_metadata.txt"
-BUFFER_SIZE = 10485760 # 10 MB
+BUFFER_SIZE = 65536 # 10 MB
 
 def check_metadata():
     if file_directory != None:
