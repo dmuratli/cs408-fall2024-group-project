@@ -95,6 +95,7 @@ def delete(client_socket, client_name, file_name):
             update_gui(f"{client_name} attempted to delete a file they do not own.")
     except Exception as e:
         client_socket.send(f"Error: {e}".encode())
+        update_gui(f"{client_name} got the error \"{e}\" while attempting to delete a file.")
 
 def list(client_socket, client_name):
     try:
@@ -169,7 +170,7 @@ def handle_client(client_socket, client_address):
             else:
                 pass
     except Exception as e:
-        print(f"Error: {e}")
+        update_gui(f"Error: {e}")
     finally:
         if client_name in clients: # Remove the client from the dictionary when they disconnect
             del clients[client_name]
