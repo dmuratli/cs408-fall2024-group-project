@@ -14,7 +14,7 @@ server_IP = None
 server_port = None
 client_socket = None
 file_name = None
-is_downloading = False
+transfer_event = threading.Event()
 
 #================
 #endregion
@@ -56,22 +56,34 @@ def get_file_name():
 
 def listen_server():
     global client_socket
-    global is_downloading
     while client_socket:
-        if (is_downloading != True):
+        if not transfer_event.is_set():
             try:
+                client_socket.settimeout(0.1)
                 message = client_socket.recv(1024).decode()
                 if message:
                     update_GUI(f"Server: {message}")
-                else:
-                    pass
+                client_socket.settimeout(None)
+            except socket.timeout:
+                continue
             except:
                 break
         else:
-            time.sleep(0.1) # 100 ms waits
-        time.sleep(0.001)  # 1 ms wait between listening
+            time.sleep(0.1)
         
+def disable_transfer_buttons():
+    download_button.config(state="disabled")
+    upload_button.config(state="disabled")
+    delete_button.config(state="disabled")
+    list_files_button.config(state="disabled")
+    file_name_entry.config(state="disabled")
 
+def enable_transfer_buttons():
+    download_button.config(state="normal")
+    upload_button.config(state="normal")
+    delete_button.config(state="normal")
+    list_files_button.config(state="normal")
+    file_name_entry.config(state="normal")
 
 def connect():
     if check_connection():
@@ -146,41 +158,40 @@ def list_files():
         update_GUI("Please connect to the server first")
 
 def download_file(filename): 
-    global is_downloading
     try:
+        disable_transfer_buttons()
+        transfer_event.set()
+        time.sleep(0.1)  # 100 ms wait before download
         client_socket.send(f"DOWNLOAD {filename}".encode())
         file_path = os.path.join(file_directory, filename)
         update_GUI("Downloading...")
-        is_downloading = True
-        time.sleep(1) #1 second waits
-        downloaded_data = []
-
+        complete_data = []
+    
         while True:
             data = client_socket.recv(1024).decode()
-            
+
             if "Error:" in data:
                 update_GUI(data)
-                is_downloading = False
                 return
                 
             if "\nDownloaded" in data:
-                data = data.split("\nDownloaded")[0]
-                if data:
-                    downloaded_data.append(data)
+                final_part = data.split("\nDownloaded")[0]
+                if final_part:
+                    complete_data.append(final_part)
                 break
-            
-            downloaded_data.append(data)
-            time.sleep(0.01) #10 ms waiting
-        
+                
+            complete_data.append(data)
+
         with open(file_path, 'w', encoding="ascii") as file:
-            file.write(''.join(downloaded_data))
+            file.write(''.join(complete_data))
         update_GUI(f"Successfully downloaded {filename}")
     except Exception as e:
         update_GUI(f"Download error: {str(e)}")
         if os.path.exists(file_path):
             os.remove(file_path)
     finally:
-        is_downloading = False
+        transfer_event.clear()
+        enable_transfer_buttons() 
 
 def download():
     global file_name
@@ -197,20 +208,32 @@ def download():
         update_GUI("Please connect to the server first")
 
 
-def upload_file(filename): #thread function for uploading
+def upload_file(filename):
     try:
+        disable_transfer_buttons() 
+        transfer_event.set() 
+        time.sleep(0.1)
         client_socket.send(f"UPLOAD {os.path.basename(filename)}".encode())
         with open(filename, 'r', encoding="ascii") as file:
             content = file.read()
-            update_GUI("Uploading...")
-            for i in range(0, len(content), 1024): #The main algorithm to handle conflicts
-                chunk = content[i:i+1024]          #The data are send as chunks 1kB (1kilo = 1024 (binary kilo))
-                client_socket.send(chunk.encode()) #The thread waits a little of time between each chunk to prevent conflicts
-                time.sleep(0.01) #10 ms waits between each chunk
-        time.sleep(1) #1 second wait before sending upload_complete signal
-        client_socket.send("UPLOAD_COMPLETE".encode()) 
+        update_GUI("Uploading...")
+
+        for i in range(0, len(content), 1024): #The main algorithm to handle conflicts
+            chunk = content[i:i+1024]          #The data are send as chunks 1kB (1kilo = 1024 (binary kilo))
+            client_socket.send(chunk.encode()) #The thread waits a little of time between each chunk to prevent conflicts
+            time.sleep(0.001)                  #1 ms waits between each chunk
+            
+        time.sleep(0.1)                       #100 ms wait before sending upload_complete signal
+        client_socket.send("UPLOAD_COMPLETE".encode())
+
+        response = client_socket.recv(1024).decode()
+        update_GUI(response)
+
     except Exception as e:
         update_GUI(f"Upload error: {e}")
+    finally:
+        transfer_event.clear()
+        enable_transfer_buttons()
 
 def upload():
     if check_connection():
