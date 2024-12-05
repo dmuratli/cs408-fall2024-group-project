@@ -4,6 +4,7 @@ import os
 import tkinter as tk
 from tkinter import filedialog
 import time
+import stat
 
 #region Global Variables
 #================
@@ -15,6 +16,8 @@ server_port = None
 client_socket = None
 file_name = None
 transfer_event = threading.Event()
+
+BUFFER_SIZE = 10485760 # 10 MB
 
 #================
 #endregion
@@ -60,7 +63,7 @@ def listen_server():
         if not transfer_event.is_set():
             try:
                 client_socket.settimeout(0.1)
-                message = client_socket.recv(1024).decode()
+                message = client_socket.recv(BUFFER_SIZE).decode()
                 if message:
                     update_GUI(f"Server: {message}")
                 client_socket.settimeout(None)
@@ -101,10 +104,10 @@ def connect():
             client_socket.connect((server_IP, server_port))
             update_GUI(f"Connecting to {server_IP}:{server_port}")
             
-            name_prompt = client_socket.recv(1024).decode()
+            name_prompt = client_socket.recv(BUFFER_SIZE).decode()
             if name_prompt == "USERNAME: ":
                 client_socket.send(name.encode())
-                response = client_socket.recv(1024).decode()
+                response = client_socket.recv(BUFFER_SIZE).decode()
             
                 if response.startswith("Error"):
                     client_socket.close()
@@ -169,7 +172,7 @@ def download_file(filename):
         complete_data = []
     
         while True:
-            data = client_socket.recv(1024).decode()
+            data = client_socket.recv(BUFFER_SIZE).decode()
 
             if "Error:" in data:
                 update_GUI(data)
@@ -185,6 +188,9 @@ def download_file(filename):
 
         with open(file_path, 'w', encoding="ascii") as file:
             file.write(''.join(complete_data))
+
+        os.chmod(file_path, stat.S_IWRITE | stat.S_IREAD)
+
         update_GUI(f"Successfully downloaded {save_filename}")
     except Exception as e:
         update_GUI(f"Download error: {str(e)}")
@@ -221,15 +227,15 @@ def upload_file(filename):
             content = file.read()
         update_GUI("Uploading...")
 
-        for i in range(0, len(content), 1024): #The main algorithm to handle conflicts
-            chunk = content[i:i+1024]          #The data are send as chunks 1kB (1kilo = 1024 (binary kilo))
+        for i in range(0, len(content), BUFFER_SIZE): #The main algorithm to handle conflicts
+            chunk = content[i:i+BUFFER_SIZE]   #The data are send as chunks of BUFFER_SIZE
             client_socket.send(chunk.encode()) #The thread waits a little of time between each chunk to prevent conflicts
             time.sleep(0.001)                  #1 ms waits between each chunk
             
         time.sleep(0.1)                       #100 ms wait before sending upload_complete signal
         client_socket.send("UPLOAD_COMPLETE".encode())
 
-        response = client_socket.recv(1024).decode()
+        response = client_socket.recv(BUFFER_SIZE).decode()
         update_GUI(response)
 
     except Exception as e:

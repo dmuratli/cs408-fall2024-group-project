@@ -9,6 +9,7 @@ server_socket = None
 clients = {} # Connected clients
 file_directory = None
 metadata_file = "server_metadata.txt"
+BUFFER_SIZE = 10485760 # 10 MB
 
 def check_metadata():
     if file_directory != None:
@@ -26,9 +27,14 @@ def upload(client_socket, client_name, file_name):
         check_metadata()
         file_path = os.path.join(file_directory, f"{client_name}|{file_name}") # Create a file path for the uploaded file in the server
 
+        if os.path.exists(file_path): # Check if the file already exists; remove it if it does to overwrite it
+            delete(client_socket, client_name, f"{client_name}|{file_name}")
+        else:
+            pass
+
         with open(file_path, "w") as f: # Create the file in the server
             while True:
-                data = client_socket.recv(1024).decode()
+                data = client_socket.recv(BUFFER_SIZE).decode()
 
                 if data.strip() == "UPLOAD_COMPLETE": # Break the loop if the client has finished uploading the file
                     break
@@ -103,10 +109,13 @@ def list(client_socket, client_name):
         metadata_path = os.path.join(file_directory, metadata_file)
 
         with open(metadata_path, "r") as f: # Parse the file list
-            file_list = f.readlines()
+            file_list = []
+
+            for line in f:
+                file_list.append(line.strip())
 
         if file_list != []: # Display the list if there are files on the server
-            response = "Files on the server:\n" + "".join(file_list)
+            response = "Files on the server: " + ", ".join(file_list)
         else:
             response = "There are no files on the server."
 
@@ -121,7 +130,7 @@ def handle_client(client_socket, client_address):
 
     try:
         client_socket.send("USERNAME: ".encode())
-        client_name = client_socket.recv(1024).decode().strip() # Receive the client name
+        client_name = client_socket.recv(BUFFER_SIZE).decode().strip() # Receive the client name
 
         if client_name in clients: # Ensure that the client name is unique
             client_socket.send("Error: Username already exists!".encode())
@@ -142,7 +151,7 @@ def handle_client(client_socket, client_address):
             # LIST
             # DISCONNECT
 
-            command = client_socket.recv(1024).decode().strip()
+            command = client_socket.recv(BUFFER_SIZE).decode().strip()
             command_elts = command.split(" ")
 
             if command.startswith("UPLOAD") or command.startswith("DOWNLOAD") or command.startswith("DELETE"):
