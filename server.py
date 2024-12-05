@@ -27,7 +27,7 @@ def upload(client_socket, client_name, file_name):
         check_metadata()
         file_path = os.path.join(file_directory, f"{client_name}|{file_name}") # Create a file path for the uploaded file in the server
 
-        if os.path.exists(file_path): # Check if the file already exists; remove it from metadata if it does
+        if os.path.exists(file_path): # Check if the file already exists; remove it from the metadata if it does
             metadata_path = os.path.join(file_directory, metadata_file)
 
             with open(metadata_path, "r") as f:
