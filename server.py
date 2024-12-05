@@ -9,7 +9,7 @@ server_socket = None
 clients = {} # Connected clients
 file_directory = None
 metadata_file = "server_metadata.txt"
-BUFFER_SIZE = 65536 # 10 MB
+BUFFER_SIZE = 65536 # 64 KB
 
 def check_metadata():
     if file_directory != None:
@@ -28,7 +28,15 @@ def upload(client_socket, client_name, file_name):
         file_path = os.path.join(file_directory, f"{client_name}|{file_name}") # Create a file path for the uploaded file in the server
 
         if os.path.exists(file_path): # Check if the file already exists; remove it if it does to overwrite it
-            delete(client_socket, client_name, f"{client_name}|{file_name}")
+            metadata_path = os.path.join(file_directory, metadata_file)
+
+            with open(metadata_path, "r") as f:
+                lines = f.readlines()
+
+            with open(metadata_path, "w") as f:
+                for line in lines:
+                    if line.strip() != f"{client_name}|{file_name}":
+                        f.write(line)
         else:
             pass
 
