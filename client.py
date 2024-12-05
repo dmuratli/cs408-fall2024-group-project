@@ -157,13 +157,14 @@ def list_files():
     else:
         update_GUI("Please connect to the server first")
 
-def download_file(filename): 
+def download_file(filename):
     try:
         disable_transfer_buttons()
         transfer_event.set()
         time.sleep(0.1)  # 100 ms wait before download
         client_socket.send(f"DOWNLOAD {filename}".encode())
-        file_path = os.path.join(file_directory, filename)
+        save_filename = filename.split("|")[-1] if "|" in filename else filename
+        file_path = os.path.join(file_directory, save_filename)
         update_GUI("Downloading...")
         complete_data = []
     
@@ -184,14 +185,14 @@ def download_file(filename):
 
         with open(file_path, 'w', encoding="ascii") as file:
             file.write(''.join(complete_data))
-        update_GUI(f"Successfully downloaded {filename}")
+        update_GUI(f"Successfully downloaded {save_filename}")
     except Exception as e:
         update_GUI(f"Download error: {str(e)}")
         if os.path.exists(file_path):
             os.remove(file_path)
     finally:
         transfer_event.clear()
-        enable_transfer_buttons() 
+        enable_transfer_buttons()
 
 def download():
     global file_name
@@ -199,6 +200,8 @@ def download():
         if file_directory:
             get_file_name()
             if file_name:
+                if "|" not in file_name:
+                    file_name = f"{name}|{file_name}"
                 threading.Thread(target=download_file, args=(file_name,)).start()
             else:
                 update_GUI("File name must not be empty")      
