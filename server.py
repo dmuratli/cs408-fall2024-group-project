@@ -199,9 +199,14 @@ def start_server():
         def accept_clients():
             while True:
                 client_socket, client_address = server_socket.accept()
-                threading.Thread(target=handle_client, args=(client_socket, client_address)).start()
+                client_thread = threading.Thread(target=handle_client, args=(client_socket, client_address))
+                client_thread.daemon = True
+                client_thread.start()
+
         
-        threading.Thread(target=accept_clients).start() # Start accepting clients
+        accept_clients_thread = threading.Thread(target=accept_clients) # Accept clients
+        accept_clients_thread.daemon = True
+        accept_clients_thread.start()
     except Exception as e:
         update_gui(f"Error: {e}")
 

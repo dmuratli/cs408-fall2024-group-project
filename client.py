@@ -252,7 +252,10 @@ def delete():
         get_file_name()
         if file_name:
             try:
-                delete_command = f"DELETE {name}|{file_name}"
+                if "|" not in file_name:
+                    delete_command = f"DELETE {name}|{file_name}"
+                else:
+                    delete_command = f"DELETE {file_name}"
                 client_socket.send(delete_command.encode())
             except Exception as e:
                 update_GUI(f"Delete error: {str(e)}")
